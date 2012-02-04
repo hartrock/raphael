@@ -3,6 +3,14 @@
  *
  * Copyright (c) 2010 Dmitry Baranovskiy (http://raphaeljs.com)
  * Licensed under the MIT (http://raphaeljs.com/license.html) license.
+ *
+ * Changes by Stephan Rudlof (sr):
+ * - line spacing;
+ * - [patch] callback logic for animation, make it more deterministic:
+ *   -> patch uses hardwired callback not installed by setTimeout(), but called directly after elem has been
+ *      removed from animationElements.
+ *   -> not known, if needed anymore (not being able to trigger a problem now), but less interrupts should be good
+ *      to avoid killing expected callback.
  */
 (function () {
     function R() {
@@ -1450,7 +1458,8 @@
                 toFloat(rot) && o.rotate(rot, true);
             }
         };
-        var leading = 1.2,
+        //sr[orig] var leading = 1.2,
+        var leading = 1.0,
         tuneText = function (el, params) {
             if (el.type != "text" || !(params[has]("text") || params[has]("font") || params[has]("font-size") || params[has]("x") || params[has]("y"))) {
                 return;
@@ -3222,6 +3231,13 @@
                     to.scale && (to.scale += E);
                     that.attr(to);
                     animationElements.splice(l--, 1);
+//sr..
+                    if (that._ac) { // callback
+                      var _ac = that._ac; // Store before ..
+                      delete that._ac;    // .. delete (for not callbacking this one again (because ..
+                      _ac.call(that);     // .. callback may trigger new animation)).
+                    }
+//..sr.
                 }
             }
             R.svg && that && that.paper && that.paper.safari();
@@ -3482,9 +3498,14 @@
                 el: element,
                 t: {x: 0, y: 0}
             });
+//sr..
+            R.is(callback, "function") && (element._ac = callback);
+            /*
             R.is(callback, "function") && (element._ac = setTimeout(function () {
                 callback.call(element);
             }, ms));
+            */
+//..sr.
             animationElements[length] == 1 && setTimeout(animation);
         }
         return this;
@@ -3497,7 +3518,9 @@
             clearTimeout(this.timeouts[i]);
         }
         this.timeouts = [];
-        clearTimeout(this._ac);
+//sr..
+        //clearTimeout(this._ac);
+//..sr.
         delete this._ac;
         return this;
     };
